@@ -15,6 +15,7 @@
 #include <test/libsolidity/SemanticTest.h>
 
 #include <libsolutil/Whiskers.h>
+#include <libsolutil/JSON.h>
 #include <libyul/Exceptions.h>
 #include <test/Common.h>
 #include <test/libsolidity/util/BytesUtils.h>
@@ -157,7 +158,7 @@ map<string, Builtin> SemanticTest::makeBuiltins() const
 	};
 }
 
-vector<SideEffectHook> SemanticTest::makeSideEffectHooks() const
+vector<SideEffectHook> SemanticTest::makeSideEffectHooks()
 {
 	return {
 		[](FunctionCall const& _call) -> vector<string>
@@ -171,6 +172,10 @@ vector<SideEffectHook> SemanticTest::makeSideEffectHooks() const
 			if (_call.signature.find("smokeTest2") != string::npos)
 				return {_call.signature + "1", _call.signature + "2"};
 			return {};
+		},
+		[this](FunctionCall const& _call) -> vector<string>
+		{
+			return eventSideEffectHook(_call);
 		}
 	};
 }
@@ -187,6 +192,86 @@ vector<string> SemanticTest::sideEffects(FunctionCall const& _call) const
 {
 	if (m_sideEffects.find(&_call) != m_sideEffects.end())
 		return m_sideEffects.at(&_call);
+	return {};
+}
+
+vector<string> SemanticTest::eventSideEffectHook(FunctionCall const&) const
+{
+	vector<string> sideEffects;
+	vector<LogRecord> recordedLogs = ExecutionFramework::recordedLogs();
+	for (auto const& log: recordedLogs)
+	{
+		optional<EventInformation> event;
+		if (!log.topics.empty())
+			event = eventOfTopic0Hash(log.topics[0]);
+		if (event.has_value())
+			soltestAssert(event.value().indexedTypes.size() == log.topics.size() - 1, "");
+		sideEffects.emplace_back("log[" + to_string(log.index) + "]");
+		if (log.creator != m_contractAddress)
+			sideEffects.emplace_back("  creator=" + log.creator.hex());
+		uint32_t index = 0;
+		for (auto& topic: log.topics)
+		{
+			string topicData{topic.hex()};
+			if (event.has_value())
+			{
+				if (index == 0)
+					topicData = "keccak256('" + event.value().signature + "')";
+				else
+					topicData = topicData + " (" + event.value().indexedTypes[index - 1] + ")";
+			}
+			sideEffects.emplace_back("  topic[" + to_string(index++) + "]: " + topicData);
+		}
+		string data{util::toHex(log.data)};
+		soltestAssert(data.size() % 64 == 0, "");
+		if (!data.empty())
+			for (index = 0; index < data.size() / 64; ++index)
+			{
+				string type;
+				if (event.has_value())
+					type = (event.value().nonIndexedTypes.size() > index ? " (" + event.value().nonIndexedTypes[index] + ")" : "");
+				sideEffects.emplace_back("   data[" + to_string(index) + "]: " + data.substr(index * 64, 64) + type);
+			}
+	}
+	return sideEffects;
+}
+
+optional<EventInformation> SemanticTest::eventOfTopic0Hash(util::h256 const& topic_0) const
+{
+	for (const auto& entity: m_currentContractABI)
+	{
+		EventInformation eventInfo;
+		if (entity["type"].isString() && entity["type"].asString() == "event")
+		{
+			string name{entity["name"].asString()};
+			bool anonymous{entity["anonymous"].asBool()};
+			vector<string> argumentTypes;
+			for (const auto& input: entity["inputs"])
+			{
+				string type{input["internalType"].asString()};
+				argumentTypes.emplace_back(type);
+				if (input["indexed"].asBool())
+					eventInfo.indexedTypes.push_back(type);
+				else
+					eventInfo.nonIndexedTypes.push_back(type);
+			}
+			if (!name.empty() && !anonymous)
+			{
+				string signature{name};
+				signature += "(";
+				for (auto& arg: argumentTypes)
+					signature += arg + ",";
+				if (!argumentTypes.empty())
+					signature = signature.substr(0, signature.length() - 1);
+				signature += ")";
+				if (topic_0 == util::keccak256(signature))
+				{
+					eventInfo.signature = signature;
+					return eventInfo;
+				}
+			}
+		}
+	}
 	return {};
 }
 
@@ -343,9 +428,8 @@ TestCase::TestResult SemanticTest::runTest(
 
 			test.setFailure(!m_transactionSuccessful);
 			test.setRawBytes(move(output));
-			test.setContractABI(m_compiler.contractABI(m_compiler.lastContractName(m_sources.mainSourceFile)));
+			test.setContractABI(m_currentContractABI);
 		}
-
 		updateSideEffects(test.call());
 		success &= test.call().sideEffects == sideEffects(test.call());
 	}
@@ -579,5 +663,6 @@ bool SemanticTest::deploy(
 )
 {
 	auto output = compileAndRunWithoutCheck(m_sources.sources, _value, _contractName, _arguments, _libraries, m_sources.mainSourceFile);
+	m_currentContractABI = m_compiler.contractABI(m_compiler.lastContractName(m_sources.mainSourceFile));
 	return !output.empty() && m_transactionSuccessful;
 }
