@@ -23,10 +23,13 @@
 
 #pragma once
 
+#include <libsolutil/Visitor.h>
+
 #include <libsolidity/ast/AST.h>
 
 #include <functional>
 #include <string>
+#include <variant>
 #include <vector>
 #include <utility>
 
@@ -324,5 +327,186 @@ private:
 	std::function<bool(ASTNode const&)> m_onVisit;
 	std::function<void(ASTNode const&)> m_onEndVisit;
 };
+
+/**
+ * variant type representing discrete types of a const ASTNode
+ * or std::monostate{} to represent none was matching.
+ */
+using ASTConstNodeVariant = std::variant<
+	ArrayTypeName const*,
+	Assignment const*,
+	BinaryOperation const*,
+	Block const*,
+	Break const*,
+	Conditional const*,
+	Continue const*,
+	ContractDefinition const*,
+	ElementaryTypeName const*,
+	ElementaryTypeNameExpression const*,
+	EmitStatement const*,
+	EnumDefinition const*,
+	EnumValue const*,
+	ErrorDefinition const*,
+	EventDefinition const*,
+	ExpressionStatement const*,
+	ForStatement const*,
+	FunctionCall const*,
+	FunctionCallOptions const*,
+	FunctionDefinition const*,
+	FunctionTypeName const*,
+	Identifier const*,
+	IdentifierPath const*,
+	IfStatement const*,
+	ImportDirective const*,
+	IndexAccess const*,
+	IndexRangeAccess const*,
+	InheritanceSpecifier const*,
+	InlineAssembly const*,
+	Literal const*,
+	Mapping const*,
+	MemberAccess const*,
+	ModifierDefinition const*,
+	ModifierInvocation const*,
+	NewExpression const*,
+	OverrideSpecifier const*,
+	ParameterList const*,
+	PlaceholderStatement const*,
+	PragmaDirective const*,
+	Return const*,
+	RevertStatement const*,
+	SourceUnit const*,
+	StructDefinition const*,
+	StructuredDocumentation const*,
+	Throw const*,
+	TryCatchClause const*,
+	TryStatement const*,
+	TupleExpression const*,
+	UnaryOperation const*,
+	UserDefinedTypeName const*,
+	UsingForDirective const*,
+	VariableDeclaration const*,
+	VariableDeclarationStatement const*,
+	WhileStatement const*,
+
+	// last element: monostate is reflecting none.
+	std::monostate
+>;
+
+namespace helper
+{
+
+class ASTConstNodeVariantResolver: public ASTConstVisitor
+{
+public:
+	static ASTConstNodeVariant get(ASTNode const* _node)
+	{
+		ASTConstNodeVariantResolver creator;
+		_node->accept(creator);
+		return creator.m_variant;
+	}
+
+protected:
+	template <typename T>
+	bool assign(T const& _node)
+	{
+		m_variant = ASTConstNodeVariant(&_node);
+		return false;
+	}
+
+	bool visit(SourceUnit const& _node) override { return assign(_node); }
+	bool visit(PragmaDirective const& _node) override { return assign(_node); }
+	bool visit(ImportDirective const& _node) override { return assign(_node); }
+	bool visit(ContractDefinition const& _node) override { return assign(_node); }
+	bool visit(IdentifierPath const& _node) override { return assign(_node); }
+	bool visit(InheritanceSpecifier const& _node) override { return assign(_node); }
+	bool visit(UsingForDirective const& _node) override { return assign(_node); }
+	bool visit(StructDefinition const& _node) override { return assign(_node); }
+	bool visit(EnumDefinition const& _node) override { return assign(_node); }
+	bool visit(EnumValue const& _node) override { return assign(_node); }
+	bool visit(ParameterList const& _node) override { return assign(_node); }
+	bool visit(OverrideSpecifier const& _node) override { return assign(_node); }
+	bool visit(FunctionDefinition const& _node) override { return assign(_node); }
+	bool visit(VariableDeclaration const& _node) override { return assign(_node); }
+	bool visit(ModifierDefinition const& _node) override { return assign(_node); }
+	bool visit(ModifierInvocation const& _node) override { return assign(_node); }
+	bool visit(EventDefinition const& _node) override { return assign(_node); }
+	bool visit(ErrorDefinition const& _node) override { return assign(_node); }
+	bool visit(ElementaryTypeName const& _node) override { return assign(_node); }
+	bool visit(UserDefinedTypeName const& _node) override { return assign(_node); }
+	bool visit(FunctionTypeName const& _node) override { return assign(_node); }
+	bool visit(Mapping const& _node) override { return assign(_node); }
+	bool visit(ArrayTypeName const& _node) override { return assign(_node); }
+	bool visit(InlineAssembly const& _node) override { return assign(_node); }
+	bool visit(Block const& _node) override { return assign(_node); }
+	bool visit(PlaceholderStatement const& _node) override { return assign(_node); }
+	bool visit(IfStatement const& _node) override { return assign(_node); }
+	bool visit(TryCatchClause const& _node) override { return assign(_node); }
+	bool visit(TryStatement const& _node) override { return assign(_node); }
+	bool visit(WhileStatement const& _node) override { return assign(_node); }
+	bool visit(ForStatement const& _node) override { return assign(_node); }
+	bool visit(Continue const& _node) override { return assign(_node); }
+	bool visit(Break const& _node) override { return assign(_node); }
+	bool visit(Return const& _node) override { return assign(_node); }
+	bool visit(Throw const& _node) override { return assign(_node); }
+	bool visit(EmitStatement const& _node) override { return assign(_node); }
+	bool visit(RevertStatement const& _node) override { return assign(_node); }
+	bool visit(VariableDeclarationStatement const& _node) override { return assign(_node); }
+	bool visit(ExpressionStatement const& _node) override { return assign(_node); }
+	bool visit(Conditional const& _node) override { return assign(_node); }
+	bool visit(Assignment const& _node) override { return assign(_node); }
+	bool visit(TupleExpression const& _node) override { return assign(_node); }
+	bool visit(UnaryOperation const& _node) override { return assign(_node); }
+	bool visit(BinaryOperation const& _node) override { return assign(_node); }
+	bool visit(FunctionCall const& _node) override { return assign(_node); }
+	bool visit(FunctionCallOptions const& _node) override { return assign(_node); }
+	bool visit(NewExpression const& _node) override { return assign(_node); }
+	bool visit(MemberAccess const& _node) override { return assign(_node); }
+	bool visit(IndexAccess const& _node) override { return assign(_node); }
+	bool visit(IndexRangeAccess const& _node) override { return assign(_node); }
+	bool visit(Identifier const& _node) override { return assign(_node); }
+	bool visit(ElementaryTypeNameExpression const& _node) override { return assign(_node); }
+	bool visit(Literal const& _node) override { return assign(_node); }
+	bool visit(StructuredDocumentation const& _node) override { return assign(_node); }
+
+	bool visitNode(ASTNode const&) override { return false; }
+
+private:
+	ASTConstNodeVariant m_variant = std::monostate{};
+};
+
+} // end helper namespace
+
+/**
+ * Matches a given ASTNode by its concrete type.
+ *
+ * @retval true The concrete type's case-handler is defined and invoked.
+ * @retval false No concrete type's case-handler defined.
+ *
+ * This helper function can be used to conveniently write case handlers
+ * for concrete ASTNode types:
+ *
+ * matchASTNode(
+ *     getSomeASTNode(),
+ *     [&](Identifier const*)
+ *     {
+ *         // Handle an Identifier node.
+ *     },
+ *     [&](IdentifierPath const*)
+ *     {
+ *         // Handle an IdentifierPath node.
+ *     },
+ *     // ...
+ * );
+ */
+template <typename... Ts>
+bool matchASTNode(ASTNode const* _node, Ts&&... _ts)
+{
+	VisitorFallback<> fallback;
+	std::visit(
+		GenericVisitor{std::ref(fallback), std::forward<Ts>(_ts)...},
+		helper::ASTConstNodeVariantResolver::get(_node)
+	);
+	return !fallback.invoked;
+}
 
 }

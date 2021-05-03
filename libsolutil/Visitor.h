@@ -51,10 +51,10 @@ namespace solidity::util
 template <typename...> struct VisitorFallback;
 
 template <typename R>
-struct VisitorFallback<R> { template<typename T> R operator()(T&&) const { return {}; } };
+struct VisitorFallback<R> { bool invoked = false; template<typename T> R operator()(T&&) { invoked = true; return {}; } };
 
 template<>
-struct VisitorFallback<> { template<typename T> void operator()(T&&) const {} };
+struct VisitorFallback<> { bool invoked = false; template<typename T> void operator()(T&&) { invoked = true; } };
 
 template <typename... Visitors> struct GenericVisitor: Visitors... { using Visitors::operator()...; };
 template <typename... Visitors> GenericVisitor(Visitors...) -> GenericVisitor<Visitors...>;
