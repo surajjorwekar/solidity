@@ -1,0 +1,18 @@
+contract ClientReceipt {
+    event Deposit(uint fixeda, bytes dynx, uint fixedb);
+    function deposit() public {
+        emit Deposit(10, msg.data, 15);
+    }
+}
+// ====
+// compileToEwasm: also
+// compileViaYul: also
+// ----
+// deposit() ->
+// - log[0]
+// -   topic[0]: keccak256('Deposit(uint256,bytes,uint256)')
+// -    data[0]: 000000000000000000000000000000000000000000000000000000000000000a (uint256)
+// -    data[1]: 0000000000000000000000000000000000000000000000000000000000000060 (bytes)
+// -    data[2]: 000000000000000000000000000000000000000000000000000000000000000f (uint256)
+// -    data[3]: 0000000000000000000000000000000000000000000000000000000000000004
+// -    data[4]: d0e30db000000000000000000000000000000000000000000000000000000000
