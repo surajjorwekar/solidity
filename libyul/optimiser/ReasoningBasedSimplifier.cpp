@@ -56,14 +56,7 @@ std::optional<string> ReasoningBasedSimplifier::invalidInCurrentEnvironment()
 
 void ReasoningBasedSimplifier::operator()(VariableDeclaration& _varDecl)
 {
-	if (_varDecl.variables.size() != 1 || !_varDecl.value)
-		return;
-	YulString varName = _varDecl.variables.front().name;
-	if (!m_ssaVariables.count(varName))
-		return;
-	bool const inserted = m_variables.insert({varName, m_solver->newVariable("yul_" + varName.str(), defaultSort())}).second;
-	yulAssert(inserted, "");
-	m_solver->addAssertion(m_variables.at(varName) == encodeExpression(*_varDecl.value));
+	Solver::encodeVariableDeclaration(_varDecl);
 }
 
 void ReasoningBasedSimplifier::operator()(If& _if)
